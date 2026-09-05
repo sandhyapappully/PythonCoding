@@ -1,0 +1,1707 @@
+import sqlite3
+
+# =====================================================
+# DATABASE CONNECTION
+# =====================================================
+
+con = sqlite3.connect("studentdb.db")
+c = con.cursor()
+
+# Enable foreign key support
+c.execute("PRAGMA foreign_keys = ON")
+
+
+# =====================================================
+# CREATE STUDENT TABLE
+# =====================================================
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS studentgrade(
+    student_id INTEGER PRIMARY KEY,
+    user_name TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL
+)
+""")
+
+print("Student Table Created Successfully..")
+
+
+# =====================================================
+# INSERT DEFAULT STUDENT
+# =====================================================
+
+try:
+    c.execute("""
+    INSERT INTO studentgrade
+    (student_id, user_name, password, role)
+    VALUES (1002, 'Remya', 'Remya1002', 'student')
+    """)
+
+    con.commit()
+    print("Default student added successfully.")
+
+except sqlite3.IntegrityError:
+    print("Default student already exists.")
+
+
+# =====================================================
+# CREATE TEACHER TABLE
+# =====================================================
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS teacher_grade(
+    teacher_id INTEGER PRIMARY KEY,
+    user_name TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL
+)
+""")
+
+print("Teacher Table Created Successfully..")
+
+
+# =====================================================
+# INSERT DEFAULT TEACHER
+# =====================================================
+
+try:
+    c.execute("""
+    INSERT INTO teacher_grade
+    (teacher_id, user_name, password, role)
+    VALUES (2001, 'Presija', 'Presija2001', 'teacher')
+    """)
+
+    con.commit()
+    print("Default teacher added successfully.")
+
+except sqlite3.IntegrityError:
+    print("Default teacher already exists.")
+
+
+# =====================================================
+# CREATE COURSE TABLE
+# =====================================================
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS course(
+    course_id INTEGER PRIMARY KEY,
+    course_name TEXT NOT NULL,
+    course_code TEXT NOT NULL,
+    credits INTEGER NOT NULL
+)
+""")
+
+print("Course Table Created Successfully..")
+
+
+# =====================================================
+# INSERT DEFAULT COURSE
+# =====================================================
+
+try:
+    c.execute("""
+    INSERT INTO course
+    (course_id, course_name, course_code, credits)
+    VALUES (101, 'B.Sc(CS)', 'CS2026', 50)
+    """)
+
+    con.commit()
+    print("Default course added successfully.")
+
+except sqlite3.IntegrityError:
+    print("Default course already exists.")
+
+
+# =====================================================
+# CREATE MARKS TABLE
+# =====================================================
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS marks(
+    mark_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    student_id INTEGER NOT NULL,
+
+    Physics INTEGER NOT NULL
+        CHECK(Physics >= 0 AND Physics <= 100),
+
+    Chemistry INTEGER NOT NULL
+        CHECK(Chemistry >= 0 AND Chemistry <= 100),
+
+    Mathematics INTEGER NOT NULL
+        CHECK(Mathematics >= 0 AND Mathematics <= 100),
+
+    English INTEGER NOT NULL
+        CHECK(English >= 0 AND English <= 100),
+
+    FOREIGN KEY(student_id)
+        REFERENCES studentgrade(student_id)
+        ON DELETE CASCADE,
+
+    UNIQUE(student_id)
+)
+""")
+
+print("Marks Table Created Successfully..")
+
+
+# =====================================================
+# CREATE ATTENDANCE TABLE
+# =====================================================
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS attendance(
+    attendance_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    student_id INTEGER NOT NULL,
+
+    attendance_date TEXT NOT NULL,
+
+    status TEXT NOT NULL
+        CHECK(status IN ('Present', 'Absent')),
+
+    FOREIGN KEY(student_id)
+        REFERENCES studentgrade(student_id)
+        ON DELETE CASCADE,
+
+    UNIQUE(student_id, attendance_date)
+)
+""")
+
+print("Attendance Table Created Successfully..")
+
+
+# =====================================================
+# CREATE LEAVE TABLE
+# =====================================================
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS leave_application(
+    leave_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    student_id INTEGER NOT NULL,
+
+    leave_date TEXT NOT NULL,
+
+    reason TEXT NOT NULL,
+
+    status TEXT NOT NULL DEFAULT 'Pending'
+        CHECK(status IN ('Pending', 'Approved', 'Rejected')),
+
+    FOREIGN KEY(student_id)
+        REFERENCES studentgrade(student_id)
+        ON DELETE CASCADE
+)
+""")
+
+print("Leave Table Created Successfully..")
+
+con.commit()
+
+
+# =====================================================
+# GET GRADE
+# =====================================================
+
+def get_grade(average):
+
+    if average >= 90:
+        return "A+"
+
+    elif average >= 80:
+        return "A"
+
+    elif average >= 70:
+        return "B"
+
+    elif average >= 60:
+        return "C"
+
+    elif average >= 50:
+        return "D"
+
+    else:
+        return "F"
+
+
+# =====================================================
+# REGISTRATION
+# =====================================================
+
+def reg():
+
+    print("\n========== REGISTRATION ==========")
+
+    u = input("Enter username: ")
+    p = input("Enter password: ")
+    r = input("Enter role (teacher/student): ").lower()
+
+    if r not in ["teacher", "student"]:
+
+        print("Invalid role!")
+        return
+
+    try:
+
+        if r == "student":
+
+            student_id = int(
+                input("Enter student ID: ")
+            )
+
+            c.execute("""
+            INSERT INTO studentgrade
+            (student_id, user_name, password, role)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                student_id,
+                u,
+                p,
+                r
+            ))
+
+        else:
+
+            teacher_id = int(
+                input("Enter teacher ID: ")
+            )
+
+            c.execute("""
+            INSERT INTO teacher_grade
+            (teacher_id, user_name, password, role)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                teacher_id,
+                u,
+                p,
+                r
+            ))
+
+        con.commit()
+
+        print("User created successfully!")
+
+    except ValueError:
+
+        print("ID must be a number.")
+
+    except sqlite3.IntegrityError:
+
+        print("Username or ID already exists!")
+
+
+# =====================================================
+# STUDENT MENU
+# =====================================================
+
+def student_menu(username):
+
+    while True:
+
+        print("\n===================================")
+        print("           STUDENT MENU")
+        print("===================================")
+        print("1. View Courses")
+        print("2. View Marks")
+        print("3. View Attendance")
+        print("4. Apply Leave")
+        print("5. View Leave Status")
+        print("6. Logout")
+        print("===================================")
+
+        try:
+
+            choice = int(
+                input("Enter your choice: ")
+            )
+
+        except ValueError:
+
+            print("Please enter a number.")
+            continue
+
+
+        # =================================================
+        # 1. VIEW COURSES
+        # =================================================
+
+        if choice == 1:
+
+            c.execute("""
+            SELECT *
+            FROM course
+            """)
+
+            courses = c.fetchall()
+
+            print("\n----------- COURSES -----------")
+
+            if courses:
+
+                for course in courses:
+
+                    print("Course ID :", course[0])
+                    print("Course    :", course[1])
+                    print("Code      :", course[2])
+                    print("Credits   :", course[3])
+                    print("------------------------------")
+
+            else:
+
+                print("No courses available.")
+
+
+        # =================================================
+        # 2. VIEW MARKS
+        # =================================================
+
+        elif choice == 2:
+
+            c.execute("""
+            SELECT student_id
+            FROM studentgrade
+            WHERE user_name = ?
+            """,
+            (username,))
+
+            student = c.fetchone()
+
+            if student is None:
+
+                print("Student not found.")
+                continue
+
+            student_id = student[0]
+
+            c.execute("""
+            SELECT
+                Physics,
+                Chemistry,
+                Mathematics,
+                English
+            FROM marks
+            WHERE student_id = ?
+            """,
+            (student_id,))
+
+            result = c.fetchone()
+
+            print("\n===================================")
+            print("             MY MARKS")
+            print("===================================")
+
+            if result:
+
+                physics = result[0]
+                chemistry = result[1]
+                mathematics = result[2]
+                english = result[3]
+
+                total = (
+                    physics +
+                    chemistry +
+                    mathematics +
+                    english
+                )
+
+                average = total / 4
+
+                grade = get_grade(average)
+
+                print("Physics     :", physics)
+                print("Chemistry   :", chemistry)
+                print("Mathematics :", mathematics)
+                print("English     :", english)
+
+                print("-----------------------------------")
+
+                print("Total Marks :", total)
+                print("Average     :", round(average, 2))
+                print("Grade       :", grade)
+
+            else:
+
+                print("Marks have not been entered yet.")
+
+
+        # =================================================
+        # 3. VIEW ATTENDANCE
+        # =================================================
+
+        elif choice == 3:
+
+            c.execute("""
+            SELECT student_id
+            FROM studentgrade
+            WHERE user_name = ?
+            """,
+            (username,))
+
+            student = c.fetchone()
+
+            if student is None:
+
+                print("Student not found.")
+                continue
+
+            student_id = student[0]
+
+            c.execute("""
+            SELECT attendance_date, status
+            FROM attendance
+            WHERE student_id = ?
+            ORDER BY attendance_date
+            """,
+            (student_id,))
+
+            records = c.fetchall()
+
+            print("\n===================================")
+            print("          MY ATTENDANCE")
+            print("===================================")
+
+            if records:
+
+                present = 0
+                absent = 0
+
+                for record in records:
+
+                    print(
+                        "Date :", record[0],
+                        "| Status :", record[1]
+                    )
+
+                    if record[1] == "Present":
+                        present += 1
+
+                    else:
+                        absent += 1
+
+                total = present + absent
+
+                percentage = (
+                    present / total
+                ) * 100
+
+                print("-----------------------------------")
+                print("Total Classes :", total)
+                print("Present       :", present)
+                print("Absent        :", absent)
+                print(
+                    "Attendance %  :",
+                    round(percentage, 2)
+                )
+
+            else:
+
+                print("No attendance records found.")
+
+
+        # =================================================
+        # 4. APPLY LEAVE
+        # =================================================
+
+        elif choice == 4:
+
+            c.execute("""
+            SELECT student_id
+            FROM studentgrade
+            WHERE user_name = ?
+            """,
+            (username,))
+
+            student = c.fetchone()
+
+            if student is None:
+
+                print("Student not found.")
+                continue
+
+            student_id = student[0]
+
+            leave_date = input(
+                "Enter leave date (YYYY-MM-DD): "
+            )
+
+            reason = input(
+                "Enter reason for leave: "
+            )
+
+            if reason.strip() == "":
+
+                print("Reason cannot be empty.")
+                continue
+
+            c.execute("""
+            INSERT INTO leave_application
+            (student_id, leave_date, reason)
+            VALUES (?, ?, ?)
+            """,
+            (
+                student_id,
+                leave_date,
+                reason
+            ))
+
+            con.commit()
+
+            print(
+                "Leave application submitted successfully!"
+            )
+
+
+        # =================================================
+        # 5. VIEW LEAVE STATUS
+        # =================================================
+
+        elif choice == 5:
+
+            c.execute("""
+            SELECT student_id
+            FROM studentgrade
+            WHERE user_name = ?
+            """,
+            (username,))
+
+            student = c.fetchone()
+
+            if student is None:
+
+                print("Student not found.")
+                continue
+
+            student_id = student[0]
+
+            c.execute("""
+            SELECT
+                leave_id,
+                leave_date,
+                reason,
+                status
+            FROM leave_application
+            WHERE student_id = ?
+            ORDER BY leave_id DESC
+            """,
+            (student_id,))
+
+            leaves = c.fetchall()
+
+            print("\n===================================")
+            print("          LEAVE STATUS")
+            print("===================================")
+
+            if leaves:
+
+                for leave in leaves:
+
+                    print("Leave ID :", leave[0])
+                    print("Date     :", leave[1])
+                    print("Reason   :", leave[2])
+                    print("Status   :", leave[3])
+                    print("-----------------------------------")
+
+            else:
+
+                print("No leave applications found.")
+
+
+        # =================================================
+        # 6. LOGOUT
+        # =================================================
+
+        elif choice == 6:
+
+            print("Logged out.")
+            break
+
+        else:
+
+            print("Invalid choice.")
+
+
+# =====================================================
+# BEST STUDENT
+# =====================================================
+
+def best_student():
+
+    c.execute("""
+    SELECT
+        studentgrade.student_id,
+        studentgrade.user_name,
+        marks.Physics,
+        marks.Chemistry,
+        marks.Mathematics,
+        marks.English
+    FROM studentgrade
+    INNER JOIN marks
+    ON studentgrade.student_id = marks.student_id
+    """)
+
+    students = c.fetchall()
+
+    print("\n===================================")
+    print("           BEST STUDENT")
+    print("===================================")
+
+    if not students:
+
+        print("No marks available.")
+        return
+
+    best_total = -1
+
+    best_students = []
+
+    for student in students:
+
+        total = (
+            student[2] +
+            student[3] +
+            student[4] +
+            student[5]
+        )
+
+        average = total / 4
+
+        if total > best_total:
+
+            best_total = total
+
+            best_students = [
+                (
+                    student[0],
+                    student[1],
+                    total,
+                    average
+                )
+            ]
+
+        elif total == best_total:
+
+            best_students.append(
+                (
+                    student[0],
+                    student[1],
+                    total,
+                    average
+                )
+            )
+
+    for student in best_students:
+
+        print("Student ID :", student[0])
+        print("Username   :", student[1])
+        print("Total Marks:", student[2])
+        print("Average    :", round(student[3], 2))
+        print("Grade      :", get_grade(student[3]))
+        print("-----------------------------------")
+
+    print("Best Student displayed successfully!")
+
+
+# =====================================================
+# SUBJECT TOPPERS
+# =====================================================
+
+def subject_toppers():
+
+    subjects = [
+        ("Physics", 2),
+        ("Chemistry", 3),
+        ("Mathematics", 4),
+        ("English", 5)
+    ]
+
+    print("\n===================================")
+    print("          SUBJECT TOPPERS")
+    print("===================================")
+
+    for subject, column in subjects:
+
+        query = f"""
+        SELECT
+            studentgrade.student_id,
+            studentgrade.user_name,
+            marks.{subject}
+        FROM studentgrade
+        INNER JOIN marks
+        ON studentgrade.student_id = marks.student_id
+        WHERE marks.{subject} = (
+            SELECT MAX({subject})
+            FROM marks
+        )
+        """
+
+        c.execute(query)
+
+        toppers = c.fetchall()
+
+        print("\n-----------------------------------")
+        print(subject.upper() + " TOPPER")
+        print("-----------------------------------")
+
+        if toppers:
+
+            for topper in toppers:
+
+                print(
+                    "Student ID :",
+                    topper[0]
+                )
+
+                print(
+                    "Username   :",
+                    topper[1]
+                )
+
+                print(
+                    subject + " Marks :",
+                    topper[2]
+                )
+
+        else:
+
+            print("No marks available.")
+
+
+# =====================================================
+# TEACHER MENU
+# =====================================================
+
+def teacher_menu(username):
+
+    while True:
+
+        print("\n===================================")
+        print("           TEACHER MENU")
+        print("===================================")
+        print("1. Add Student")
+        print("2. Delete Student")
+        print("3. View Students")
+        print("4. Add / Update Marks")
+        print("5. View Student Marks")
+        print("6. Mark Attendance")
+        print("7. View Student Attendance")
+        print("8. View Leave Applications")
+        print("9. Approve / Reject Leave")
+        print("10. Best Student")
+        print("11. Subject Toppers")
+        print("12. Logout")
+        print("===================================")
+
+        try:
+
+            choice = int(
+                input("Enter your choice: ")
+            )
+
+        except ValueError:
+
+            print("Please enter a number.")
+            continue
+
+
+        # =================================================
+        # 1. ADD STUDENT
+        # =================================================
+
+        if choice == 1:
+
+            try:
+
+                student_id = int(
+                    input("Enter student ID: ")
+                )
+
+                name = input(
+                    "Enter student username: "
+                )
+
+                password = input(
+                    "Enter student password: "
+                )
+
+                c.execute("""
+                INSERT INTO studentgrade
+                (student_id, user_name, password, role)
+                VALUES (?, ?, ?, 'student')
+                """,
+                (
+                    student_id,
+                    name,
+                    password
+                ))
+
+                con.commit()
+
+                print("Student added successfully!")
+
+            except ValueError:
+
+                print(
+                    "Student ID must be a number."
+                )
+
+            except sqlite3.IntegrityError:
+
+                print(
+                    "Student ID or username already exists!"
+                )
+
+
+        # =================================================
+        # 2. DELETE STUDENT
+        # =================================================
+
+        elif choice == 2:
+
+            try:
+
+                student_id = int(
+                    input(
+                        "Enter student ID to delete: "
+                    )
+                )
+
+                c.execute("""
+                DELETE FROM studentgrade
+                WHERE student_id = ?
+                """,
+                (student_id,))
+
+                con.commit()
+
+                if c.rowcount > 0:
+
+                    print(
+                        "Student deleted successfully!"
+                    )
+
+                else:
+
+                    print("Student not found!")
+
+            except ValueError:
+
+                print(
+                    "Please enter a valid student ID."
+                )
+
+
+        # =================================================
+        # 3. VIEW STUDENTS
+        # =================================================
+
+        elif choice == 3:
+
+            c.execute("""
+            SELECT student_id, user_name, role
+            FROM studentgrade
+            ORDER BY student_id
+            """)
+
+            students = c.fetchall()
+
+            print("\n----------- STUDENT LIST -----------")
+
+            if students:
+
+                for student in students:
+
+                    print(
+                        "ID       :",
+                        student[0]
+                    )
+
+                    print(
+                        "Username :",
+                        student[1]
+                    )
+
+                    print(
+                        "Role     :",
+                        student[2]
+                    )
+
+                    print(
+                        "------------------------------------"
+                    )
+
+            else:
+
+                print("No students found.")
+
+
+        # =================================================
+        # 4. ADD / UPDATE MARKS
+        # =================================================
+
+        elif choice == 4:
+
+            try:
+
+                student_id = int(
+                    input("Enter student ID: ")
+                )
+
+                c.execute("""
+                SELECT user_name
+                FROM studentgrade
+                WHERE student_id = ?
+                """,
+                (student_id,))
+
+                student = c.fetchone()
+
+                if student is None:
+
+                    print(
+                        "Student ID does not exist!"
+                    )
+
+                    continue
+
+                print("\nEnter marks out of 100")
+
+                physics = int(
+                    input("Physics: ")
+                )
+
+                chemistry = int(
+                    input("Chemistry: ")
+                )
+
+                mathematics = int(
+                    input("Mathematics: ")
+                )
+
+                english = int(
+                    input("English: ")
+                )
+
+                if not (
+                    0 <= physics <= 100 and
+                    0 <= chemistry <= 100 and
+                    0 <= mathematics <= 100 and
+                    0 <= english <= 100
+                ):
+
+                    print(
+                        "Marks must be between 0 and 100."
+                    )
+
+                    continue
+
+                c.execute("""
+                SELECT student_id
+                FROM marks
+                WHERE student_id = ?
+                """,
+                (student_id,))
+
+                existing = c.fetchone()
+
+                if existing:
+
+                    c.execute("""
+                    UPDATE marks
+                    SET
+                        Physics = ?,
+                        Chemistry = ?,
+                        Mathematics = ?,
+                        English = ?
+                    WHERE student_id = ?
+                    """,
+                    (
+                        physics,
+                        chemistry,
+                        mathematics,
+                        english,
+                        student_id
+                    ))
+
+                    print(
+                        "Marks updated successfully!"
+                    )
+
+                else:
+
+                    c.execute("""
+                    INSERT INTO marks
+                    (
+                        student_id,
+                        Physics,
+                        Chemistry,
+                        Mathematics,
+                        English
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        student_id,
+                        physics,
+                        chemistry,
+                        mathematics,
+                        english
+                    ))
+
+                    print(
+                        "Marks added successfully!"
+                    )
+
+                con.commit()
+
+            except ValueError:
+
+                print(
+                    "Please enter valid numbers."
+                )
+
+            except sqlite3.IntegrityError as e:
+
+                print("Database Error:", e)
+
+
+        # =================================================
+        # 5. VIEW STUDENT MARKS
+        # =================================================
+
+        elif choice == 5:
+
+            try:
+
+                student_id = int(
+                    input("Enter student ID: ")
+                )
+
+                c.execute("""
+                SELECT
+                    studentgrade.student_id,
+                    studentgrade.user_name,
+                    marks.Physics,
+                    marks.Chemistry,
+                    marks.Mathematics,
+                    marks.English
+                FROM studentgrade
+
+                INNER JOIN marks
+                ON studentgrade.student_id =
+                   marks.student_id
+
+                WHERE studentgrade.student_id = ?
+                """,
+                (student_id,))
+
+                result = c.fetchone()
+
+                print("\n===================================")
+                print("         STUDENT MARKS")
+                print("===================================")
+
+                if result:
+
+                    print(
+                        "Student ID  :",
+                        result[0]
+                    )
+
+                    print(
+                        "Username    :",
+                        result[1]
+                    )
+
+                    print(
+                        "Physics     :",
+                        result[2]
+                    )
+
+                    print(
+                        "Chemistry   :",
+                        result[3]
+                    )
+
+                    print(
+                        "Mathematics :",
+                        result[4]
+                    )
+
+                    print(
+                        "English     :",
+                        result[5]
+                    )
+
+                    total = (
+                        result[2] +
+                        result[3] +
+                        result[4] +
+                        result[5]
+                    )
+
+                    average = total / 4
+
+                    grade = get_grade(average)
+
+                    print("-----------------------------------")
+
+                    print(
+                        "Total Marks :",
+                        total
+                    )
+
+                    print(
+                        "Average     :",
+                        round(average, 2)
+                    )
+
+                    print(
+                        "Grade       :",
+                        grade
+                    )
+
+                else:
+
+                    print(
+                        "No marks found for this student."
+                    )
+
+            except ValueError:
+
+                print(
+                    "Please enter a valid student ID."
+                )
+
+
+        # =================================================
+        # 6. MARK ATTENDANCE
+        # =================================================
+
+        elif choice == 6:
+
+            try:
+
+                student_id = int(
+                    input("Enter student ID: ")
+                )
+
+                c.execute("""
+                SELECT user_name
+                FROM studentgrade
+                WHERE student_id = ?
+                """,
+                (student_id,))
+
+                student = c.fetchone()
+
+                if student is None:
+
+                    print("Student not found!")
+                    continue
+
+                attendance_date = input(
+                    "Enter date (YYYY-MM-DD): "
+                )
+
+                status = input(
+                    "Enter attendance (Present/Absent): "
+                ).strip().capitalize()
+
+                if status not in [
+                    "Present",
+                    "Absent"
+                ]:
+
+                    print(
+                        "Enter only Present or Absent."
+                    )
+
+                    continue
+
+                c.execute("""
+                SELECT attendance_id
+                FROM attendance
+                WHERE student_id = ?
+                AND attendance_date = ?
+                """,
+                (
+                    student_id,
+                    attendance_date
+                ))
+
+                existing = c.fetchone()
+
+                if existing:
+
+                    c.execute("""
+                    UPDATE attendance
+                    SET status = ?
+                    WHERE student_id = ?
+                    AND attendance_date = ?
+                    """,
+                    (
+                        status,
+                        student_id,
+                        attendance_date
+                    ))
+
+                    print(
+                        "Attendance updated successfully!"
+                    )
+
+                else:
+
+                    c.execute("""
+                    INSERT INTO attendance
+                    (
+                        student_id,
+                        attendance_date,
+                        status
+                    )
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        student_id,
+                        attendance_date,
+                        status
+                    ))
+
+                    print(
+                        "Attendance marked successfully!"
+                    )
+
+                con.commit()
+
+            except ValueError:
+
+                print(
+                    "Please enter a valid student ID."
+                )
+
+
+        # =================================================
+        # 7. VIEW STUDENT ATTENDANCE
+        # =================================================
+
+        elif choice == 7:
+
+            try:
+
+                student_id = int(
+                    input("Enter student ID: ")
+                )
+
+                c.execute("""
+                SELECT user_name
+                FROM studentgrade
+                WHERE student_id = ?
+                """,
+                (student_id,))
+
+                student = c.fetchone()
+
+                if student is None:
+
+                    print("Student not found!")
+                    continue
+
+                c.execute("""
+                SELECT attendance_date, status
+                FROM attendance
+                WHERE student_id = ?
+                ORDER BY attendance_date
+                """,
+                (student_id,))
+
+                records = c.fetchall()
+
+                print("\n===================================")
+                print("       STUDENT ATTENDANCE")
+                print("===================================")
+
+                print(
+                    "Student ID :",
+                    student_id
+                )
+
+                print(
+                    "Username   :",
+                    student[0]
+                )
+
+                print("-----------------------------------")
+
+                if records:
+
+                    present = 0
+                    absent = 0
+
+                    for record in records:
+
+                        print(
+                            "Date :",
+                            record[0],
+                            "| Status :",
+                            record[1]
+                        )
+
+                        if record[1] == "Present":
+                            present += 1
+
+                        else:
+                            absent += 1
+
+                    total = present + absent
+
+                    percentage = (
+                        present / total
+                    ) * 100
+
+                    print("-----------------------------------")
+                    print(
+                        "Total Classes :",
+                        total
+                    )
+
+                    print(
+                        "Present       :",
+                        present
+                    )
+
+                    print(
+                        "Absent        :",
+                        absent
+                    )
+
+                    print(
+                        "Attendance %  :",
+                        round(percentage, 2)
+                    )
+
+                else:
+
+                    print(
+                        "No attendance records found."
+                    )
+
+            except ValueError:
+
+                print(
+                    "Please enter a valid student ID."
+                )
+
+
+        # =================================================
+        # 8. VIEW LEAVE APPLICATIONS
+        # =================================================
+
+        elif choice == 8:
+
+            c.execute("""
+            SELECT
+                leave_application.leave_id,
+                studentgrade.student_id,
+                studentgrade.user_name,
+                leave_application.leave_date,
+                leave_application.reason,
+                leave_application.status
+
+            FROM leave_application
+
+            INNER JOIN studentgrade
+
+            ON leave_application.student_id =
+               studentgrade.student_id
+
+            ORDER BY leave_application.leave_id DESC
+            """)
+
+            leaves = c.fetchall()
+
+            print("\n===================================")
+            print("       LEAVE APPLICATIONS")
+            print("===================================")
+
+            if leaves:
+
+                for leave in leaves:
+
+                    print(
+                        "Leave ID   :",
+                        leave[0]
+                    )
+
+                    print(
+                        "Student ID :",
+                        leave[1]
+                    )
+
+                    print(
+                        "Username   :",
+                        leave[2]
+                    )
+
+                    print(
+                        "Leave Date :",
+                        leave[3]
+                    )
+
+                    print(
+                        "Reason     :",
+                        leave[4]
+                    )
+
+                    print(
+                        "Status     :",
+                        leave[5]
+                    )
+
+                    print("-----------------------------------")
+
+            else:
+
+                print(
+                    "No leave applications found."
+                )
+
+
+        # =================================================
+        # 9. APPROVE / REJECT LEAVE
+        # =================================================
+
+        elif choice == 9:
+
+            try:
+
+                leave_id = int(
+                    input("Enter leave ID: ")
+                )
+
+                c.execute("""
+                SELECT leave_id
+                FROM leave_application
+                WHERE leave_id = ?
+                """,
+                (leave_id,))
+
+                leave = c.fetchone()
+
+                if leave is None:
+
+                    print(
+                        "Leave application not found!"
+                    )
+
+                    continue
+
+                status = input(
+                    "Enter status (Approved/Rejected): "
+                ).strip().capitalize()
+
+                if status not in [
+                    "Approved",
+                    "Rejected"
+                ]:
+
+                    print(
+                        "Enter only Approved or Rejected."
+                    )
+
+                    continue
+
+                c.execute("""
+                UPDATE leave_application
+                SET status = ?
+                WHERE leave_id = ?
+                """,
+                (
+                    status,
+                    leave_id
+                ))
+
+                con.commit()
+
+                print(
+                    "Leave status updated successfully!"
+                )
+
+            except ValueError:
+
+                print(
+                    "Please enter a valid leave ID."
+                )
+
+
+        # =================================================
+        # 10. BEST STUDENT
+        # =================================================
+
+        elif choice == 10:
+
+            best_student()
+
+
+        # =================================================
+        # 11. SUBJECT TOPPERS
+        # =================================================
+
+        elif choice == 11:
+
+            subject_toppers()
+
+
+        # =================================================
+        # 12. LOGOUT
+        # =================================================
+
+        elif choice == 12:
+
+            print("Logged out.")
+            break
+
+        else:
+
+            print("Invalid choice.")
+
+
+# =====================================================
+# LOGIN
+# =====================================================
+
+def login():
+
+    print("\n========== LOGIN ==========")
+
+    u = input("Enter username: ")
+    p = input("Enter password: ")
+
+
+    # =================================================
+    # CHECK STUDENT
+    # =================================================
+
+    c.execute("""
+    SELECT *
+    FROM studentgrade
+    WHERE user_name = ?
+    AND password = ?
+    """,
+    (
+        u,
+        p
+    ))
+
+    x = c.fetchone()
+
+    if x:
+
+        print("\nHello", x[1])
+
+        student_menu(x[1])
+
+        return
+
+
+    # =================================================
+    # CHECK TEACHER
+    # =================================================
+
+    c.execute("""
+    SELECT *
+    FROM teacher_grade
+    WHERE user_name = ?
+    AND password = ?
+    """,
+    (
+        u,
+        p
+    ))
+
+    x = c.fetchone()
+
+    if x:
+
+        print("\nHello", x[1])
+
+        teacher_menu(x[1])
+
+        return
+
+
+    print("Invalid username or password.")
+
+
+# =====================================================
+# MAIN MENU
+# =====================================================
+
+while True:
+
+    print("\n")
+
+    print("===================================")
+    print("      STUDENT GRADE SYSTEM")
+    print("===================================")
+
+    print("1. Login")
+    print("2. Register")
+    print("3. Exit")
+
+    print("===================================")
+
+    try:
+
+        xyz = int(
+            input("Enter your choice: ")
+        )
+
+    except ValueError:
+
+        print("Please enter a number.")
+        continue
+
+
+    # =================================================
+    # LOGIN
+    # =================================================
+
+    if xyz == 1:
+
+        login()
+
+
+    # =================================================
+    # REGISTER
+    # =================================================
+
+    elif xyz == 2:
+
+        reg()
+
+
+    # =================================================
+    # EXIT
+    # =================================================
+
+    elif xyz == 3:
+
+        print(
+            "Thank you for using Student Grade System!"
+        )
+
+        break
+
+
+    else:
+
+        print("Invalid choice.")
+
+
+# =====================================================
+# CLOSE DATABASE
+# =====================================================
+
+con.close()
